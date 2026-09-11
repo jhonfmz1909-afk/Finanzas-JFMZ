@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>Mis Finanzas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0F1B1E;
+    --surface: #16262A;
+    --surface-2: #1D3136;
+    --line: #263C41;
+    --text: #F2F5F3;
+    --text-muted: #8FA39D;
+    --ingreso: #4FD1A5;
+    --gasto: #E8735C;
+    --meta: #E8B84B;
+    --radius: 14px;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+  html,body{ height:100%; }
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+  h1,h2,h3, .display{ font-family:'Space Grotesk', sans-serif; font-weight:600; margin:0; }
+  .num{ font-family:'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
+  button{ font-family:inherit; }
+  /* ---------- LOGIN ---------- */
+  #login-screen{
+    min-height:100vh; display:flex; flex-direction:column; justify-content:center;
+    padding:32px 24px; gap:24px;
+  }
+  #login-screen .brand{ text-align:left; }
+  #login-screen .brand h1{ font-size:28px; line-height:1.15; }
+  #login-screen .brand p{ color:var(--text-muted); margin-top:8px; font-size:14px; }
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field label{ font-size:12px; color:var(--text-muted); }
+  .field input, .field select{
+    background:var(--surface); border:1px solid var(--line); color:var(--text);
+    padding:13px 14px; border-radius:10px; font-size:16px; width:100%;
+  }
+  .field input:focus, .field select:focus{ outline:none; border-color:var(--ingreso); }
+  .btn{
+    border:none; border-radius:10px; padding:14px 18px; font-size:15px; font-weight:600;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-primary{ background:var(--ingreso); color:#04231A; }
+  .btn-ghost{ background:transparent; color:var(--text-muted); border:1px solid var(--line); }
+  .btn-danger{ background:transparent; color:var(--gasto); border:1px solid var(--line); }
+  #login-error{ color:var(--gasto); font-size:13px; min-height:16px; }
+  .login-toggle{ text-align:center; color:var(--text-muted); font-size:13px; margin-top:4px; }
+  .login-toggle a{ color:var(--ingreso); text-decoration:none; cursor:pointer; }
+
+  /* ---------- APP SHELL ---------- */
+  #app-screen{ display:none; }
+  header.top{
+    padding:20px 20px 18px; position:sticky; top:0; z-index:5;
+    background:linear-gradient(180deg, var(--bg) 70%, transparent);
+  }
+  header.top .row{ display:flex; justify-content:space-between; align-items:flex-start; }
+  header.top .greet{ font-size:13px; color:var(--text-muted); }
+  header.top .month{ font-size:13px; color:var(--text-muted); }
+  #logout-btn{ background:none; border:none; color:var(--text-muted); font-size:12px; cursor:pointer; padding:4px; }
+
+  .balance-card{
+    margin:0 20px 18px; padding:22px; border-radius:20px;
+    background: linear-gradient(135deg, var(--surface-2), var(--surface));
+    border:1px solid var(--line);
+  }
+  .balance-card .label{ font-size:12px; color:var(--text-muted); }
+  .balance-card .amount{ font-size:34px; margin-top:6px; }
+  .balance-card .sub{ display:flex; gap:18px; margin-top:16px; }
+  .balance-card .sub div{ font-size:12px; color:var(--text-muted); }
+  .balance-card .sub .val{ display:block; font-size:16px; color:var(--text); margin-top:2px; }
+  .balance-card .sub .val.in{ color:var(--ingreso); }
+  .balance-card .sub .val.out{ color:var(--gasto); }
+
+  main{ padding:0 20px 20px; }
+  section.view{ display:none; }
+  section.view.active{ display:block; }
+  .section-title{ font-size:18px; margin:22px 0 12px; }
+  .section-title:first-child{ margin-top:0; }
+
+  .card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px; }
+  .empty{ color:var(--text-muted); font-size:13px; text-align:center; padding:24px 12px; }
+
+  /* movimiento row */
+  .mov-item{ display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
+  .mov-item:last-child{ border-bottom:none; }
+  .mov-icon{ width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:16px; }
+  .mov-icon.in{ background:rgba(79,209,165,.15); color:var(--ingreso); }
+  .mov-icon.out{ background:rgba(232,115,92,.15); color:var(--gasto); }
+  .mov-body{ flex:1; min-width:0; }
+  .mov-body .cat{ font-size:14px; }
+  .mov-body .meta{ font-size:12px; color:var(--text-muted); margin-top:2px; }
+  .mov-amount{ font-size:15px; }
+  .mov-amount.in{ color:var(--ingreso); }
+  .mov-amount.out{ color:var(--gasto); }
+  .mov-del{ background:none; border:none; color:var(--text-muted); font-size:16px; padding:6px; cursor:pointer; }
+
+  /* filters */
+  .filter-row{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:14px; }
+  .chip{
+    flex-shrink:0; padding:8px 14px; border-radius:100px; border:1px solid var(--line);
+    background:var(--surface); color:var(--text-muted); font-size:13px; cursor:pointer;
+  }
+  .chip.active{ background:var(--ingreso); color:#04231A; border-color:var(--ingreso); }
+
+  /* presupuestos */
+  .budget-item{ padding:14px 0; border-bottom:1px solid var(--line); }
+  .budget-item:last-child{ border-bottom:none; }
+  .budget-item .row{ display:flex; justify-content:space-between; font-size:13px; margin-bottom:8px; }
+  .budget-item .row .cat{ color:var(--text); }
+  .budget-item .row .figures{ color:var(--text-muted); }
+  .bar-track{ height:8px; border-radius:100px; background:var(--surface-2); overflow:hidden; }
+  .bar-fill{ height:100%; border-radius:100px; transition:width .3s; }
+  .bar-fill.ok{ background:var(--ingreso); }
+  .bar-fill.warn{ background:var(--meta); }
+  .bar-fill.over{ background:var(--gasto); }
+  .budget-limit-input{ width:90px; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    border-radius:8px; padding:6px 8px; font-size:13px; text-align:right; }
+
+  /* metas */
+  .goal-card{ margin-bottom:14px; }
+  .goal-card .row{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+  .goal-card .name{ font-size:15px; }
+  .goal-card .deadline{ font-size:11px; color:var(--text-muted); }
+  .goal-card .figures{ font-size:12px; color:var(--text-muted); margin-top:8px; display:flex; justify-content:space-between; }
+  .goal-card .actions{ margin-top:12px; display:flex; gap:8px; }
+  .goal-card .actions button{ flex:1; padding:9px; font-size:12px; border-radius:8px; }
+
+  /* forms */
+  .form-grid{ display:flex; flex-direction:column; gap:14px; }
+  .type-toggle{ display:flex; background:var(--surface-2); border-radius:10px; padding:4px; }
+  .type-toggle button{ flex:1; padding:10px; border:none; background:none; border-radius:8px; color:var(--text-muted); font-size:14px; font-weight:600; cursor:pointer; }
+  .type-toggle button.active.in{ background:var(--ingreso); color:#04231A; }
+  .type-toggle button.active.out{ background:var(--gasto); color:#2A0E08; }
+  .amount-input{ font-size:32px; text-align:center; background:none; border:none; color:var(--text); width:100%; font-family:'IBM Plex Mono', monospace; }
+  .amount-input:focus{ outline:none; }
+
+  /* bottom nav */
+  nav.bottom{
+    position:fixed; bottom:0; left:0; right:0; z-index:10;
+    background:rgba(22,38,42,.92); backdrop-filter:blur(10px);
+    border-top:1px solid var(--line);
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+    display:flex; justify-content:space-around;
+  }
+  nav.bottom button{
+    background:none; border:none; color:var(--text-muted); display:flex; flex-direction:column;
+    align-items:center; gap:4px; font-size:10px; padding:6px 10px; cursor:pointer; flex:1;
+  }
+  nav.bottom button svg{ width:22px; height:22px; }
+  nav.bottom button.active{ color:var(--ingreso); }
+  nav.bottom button.fab{ color:var(--bg); }
+  nav.bottom button.fab .fab-circle{
+    width:44px; height:44px; border-radius:50%; background:var(--ingreso);
+    display:flex; align-items:center; justify-content:center; margin-bottom:2px;
+  }
+
+  /* modal */
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:20; display:none;
+    align-items:flex-end; justify-content:center;
+  }
+  .modal-backdrop.show{ display:flex; }
+  .modal-sheet{
+    background:var(--surface); width:100%; max-width:480px; border-radius:20px 20px 0 0;
+    padding:20px 20px calc(20px + env(safe-area-inset-bottom)); max-height:88vh; overflow-y:auto;
+  }
+  .modal-sheet .handle{ width:36px; height:4px; background:var(--line); border-radius:4px; margin:0 auto 16px; }
+  .modal-title{ font-size:17px; margin-bottom:16px; }
+
+  select.field-select{ appearance:none; }
+
+  .toast{
+    position:fixed; bottom:90px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--surface-2); border:1px solid var(--line); padding:10px 18px; border-radius:100px;
+    font-size:13px; opacity:0; transition:all .25s; z-index:30; pointer-events:none;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login-screen">
+  <div class="brand">
+    <h1>Mis Finanzas</h1>
+    <p>Control diario de ingresos, gastos y metas de ahorro.</p>
+  </div>
+  <div class="form-grid">
+    <div class="field">
+      <label for="login-email">Usuario</label>
+      <input id="login-email" type="text" autocomplete="username" placeholder="jhon" autocapitalize="off" autocorrect="off" />
+    </div>
+    <div class="field">
+      <label for="login-pass">Contraseña</label>
+      <input id="login-pass" type="password" autocomplete="current-password" placeholder="Mínimo 6 caracteres" />
+    </div>
+    <div id="login-error"></div>
+    <button class="btn btn-primary" id="login-btn">Entrar</button>
+    <button class="btn btn-ghost" id="register-btn">Crear mi cuenta</button>
+  </div>
+  <p class="login-toggle">Herramienta personal — solo tú deberías tener este enlace.</p>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app-screen">
+  <header class="top">
+    <div class="row">
+      <div>
+        <div class="greet" id="greet-text">Hola</div>
+        <div class="month" id="month-text"></div>
+      </div>
+      <button id="logout-btn">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <div class="balance-card">
+    <div class="label">Balance del mes</div>
+    <div class="amount num" id="balance-amount">$0</div>
+    <div class="sub">
+      <div>Entradas<span class="val in num" id="sum-in">$0</span></div>
+      <div>Salidas<span class="val out num" id="sum-out">$0</span></div>
+      <div>Ahorrado (total)<span class="val num" id="sum-saved">$0</span></div>
+    </div>
+  </div>
+
+  <main>
+    <!-- DASHBOARD -->
+    <section class="view active" id="view-dashboard">
+      <h2 class="section-title">Últimos movimientos</h2>
+      <div class="card" id="dashboard-recent"><div class="empty">Aún no registras movimientos.</div></div>
+
+      <h2 class="section-title">Presupuestos del mes</h2>
+      <div class="card" id="dashboard-budgets"><div class="empty">Define un presupuesto en la pestaña Presupuesto.</div></div>
+
+      <h2 class="section-title">Metas de ahorro</h2>
+      <div id="dashboard-goals"><div class="card"><div class="empty">Crea tu primera meta en la pestaña Metas.</div></div></div>
+    </section>
+
+    <!-- HISTORIAL -->
+    <section class="view" id="view-historial">
+      <h2 class="section-title">Historial</h2>
+      <div class="filter-row" id="hist-filters">
+        <button class="chip active" data-filter="todos">Todos</button>
+        <button class="chip" data-filter="ingreso">Entradas</button>
+        <button class="chip" data-filter="gasto">Salidas</button>
+      </div>
+      <div class="card" id="hist-list"><div class="empty">Sin movimientos todavía.</div></div>
+    </section>
+
+    <!-- PRESUPUESTO -->
+    <section class="view" id="view-presupuesto">
+      <h2 class="section-title">Presupuesto mensual por categoría</h2>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px;">
+        Define un límite mensual por categoría de gasto. La barra se llena con lo gastado en el mes actual.
+      </p>
+      <div class="card" id="budget-list"></div>
+    </section>
+
+    <!-- METAS -->
+    <section class="view" id="view-metas">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 class="section-title" style="margin:0;">Metas de ahorro</h2>
+        <button class="btn btn-primary" style="padding:9px 14px; font-size:13px;" id="new-goal-btn">+ Nueva</button>
+      </div>
+      <div id="goals-list" style="margin-top:14px;"><div class="card"><div class="empty">No tienes metas activas.</div></div></div>
+    </section>
+  </main>
+</div>
+
+<nav class="bottom" id="bottom-nav" style="display:none;">
+  <button class="nav-btn active" data-view="dashboard">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
+    Inicio
+  </button>
+  <button class="nav-btn" data-view="historial">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+    Historial
+  </button>
+  <button class="fab" id="fab-add">
+    <span class="fab-circle">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#04231A" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
+    </span>
+    Registrar
+  </button>
+  <button class="nav-btn" data-view="presupuesto">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/></svg>
+    Presupuesto
+  </button>
+  <button class="nav-btn" data-view="metas">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".6" fill="currentColor"/></svg>
+    Metas
+  </button>
+</nav>
+
+<!-- MODAL: registrar movimiento -->
+<div class="modal-backdrop" id="mov-modal">
+  <div class="modal-sheet">
+    <div class="handle"></div>
+    <div class="type-toggle" style="margin-bottom:18px;">
+      <button id="type-in" class="active in">Entrada</button>
+      <button id="type-out" class="out">Salida</button>
+    </div>
+    <input class="amount-input num" id="mov-amount" type="number" inputmode="decimal" placeholder="$0" />
+    <div class="form-grid" style="margin-top:20px;">
+      <div class="field">
+        <label for="mov-categoria">Categoría</label>
+        <select class="field-select" id="mov-categoria"></select>
+      </div>
+      <div class="field" id="mov-meta-field" style="display:none;">
+        <label for="mov-meta">Meta a la que aporta</label>
+        <select class="field-select" id="mov-meta"></select>
+      </div>
+      <div class="field">
+        <label for="mov-cuenta">Cuenta / bolsillo</label>
+        <input id="mov-cuenta" list="cuentas-sugeridas" placeholder="Efectivo, Banco, Nequi..." />
+        <datalist id="cuentas-sugeridas">
+          <option value="Efectivo"></option>
+          <option value="Cuenta bancaria"></option>
+          <option value="Nequi"></option>
+          <option value="Daviplata"></option>
+        </datalist>
+      </div>
+      <div class="field">
+        <label for="mov-fecha">Fecha</label>
+        <input id="mov-fecha" type="date" />
+      </div>
+      <div class="field">
+        <label for="mov-nota">Nota (opcional)</label>
+        <input id="mov-nota" placeholder="Ej: Mercado semanal" />
+      </div>
+      <div id="mov-error" style="color:var(--gasto); font-size:13px;"></div>
+      <button class="btn btn-primary" id="mov-save">Guardar movimiento</button>
+      <button class="btn btn-ghost" id="mov-cancel">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: nueva meta -->
+<div class="modal-backdrop" id="goal-modal">
+  <div class="modal-sheet">
+    <div class="handle"></div>
+    <div class="modal-title">Nueva meta de ahorro</div>
+    <div class="form-grid">
+      <div class="field">
+        <label for="goal-nombre">Nombre</label>
+        <input id="goal-nombre" placeholder="Ej: Fondo de emergencia" />
+      </div>
+      <div class="field">
+        <label for="goal-monto">Monto objetivo</label>
+        <input id="goal-monto" type="number" inputmode="decimal" placeholder="$0" />
+      </div>
+      <div class="field">
+        <label for="goal-fecha">Fecha límite (opcional)</label>
+        <input id="goal-fecha" type="date" />
+      </div>
+      <div id="goal-error" style="color:var(--gasto); font-size:13px;"></div>
+      <button class="btn btn-primary" id="goal-save">Crear meta</button>
+      <button class="btn btn-ghost" id="goal-cancel">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+/* =========================================================================
+   MIS FINANZAS — app personal de ingresos, gastos, presupuestos y metas
+   Backend: Firebase (Authentication + Firestore), sincronización en línea.
+
+   ANTES DE USAR:
+   1. Reemplaza el objeto firebaseConfig de abajo con el de tu proyecto
+      (ver guía de configuración que te entregó Claude).
+   2. Sube este archivo a un hosting (Firebase Hosting, GitHub Pages, etc.)
+      o simplemente ábrelo en el navegador del celular una vez esté hosteado
+      — Firebase Auth necesita http/https, no funciona con file:// local.
+   ========================================================================= */
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword,
+  createUserWithEmailAndPassword, signOut
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import {
+  getFirestore, collection, doc, addDoc, deleteDoc, setDoc,
+  onSnapshot, query, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+// ---- 1. CONFIGURA AQUÍ TU PROYECTO DE FIREBASE ----
+const firebaseConfig = {
+  apiKey: "AIzaSyArAEoEoAxJftQ-DvfxNvf5ewUSDyNJ8hE",
+  authDomain: "finanzas-jfmz.firebaseapp.com",
+  projectId: "finanzas-jfmz",
+  storageBucket: "finanzas-jfmz.firebasestorage.app",
+  messagingSenderId: "766174257351",
+  appId: "1:766174257351:web:742055a305fd498a7c5ee2"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// ---- 2. CATEGORÍAS Y CUENTAS POR DEFECTO (edítalas a tu gusto) ----
+const CATEGORIAS_GASTO = [
+  "Arriendo / Vivienda", "Alimentación", "Transporte", "Servicios públicos",
+  "Salud", "Insumos de trabajo", "Educación / Formación", "Ocio",
+  "Ahorro / Meta", "Otros"
+];
+const CATEGORIAS_INGRESO = ["Honorarios / Asesorías", "Salario", "Otros ingresos"];
+const CATEGORIA_AHORRO = "Ahorro / Meta";
+
+// ---- ESTADO LOCAL ----
+let uid = null;
+let movimientos = [];
+let presupuestos = {};   // { categoria: limite }
+let metas = [];          // [{id, nombre, montoObjetivo, fechaLimite}]
+let unsubFns = [];
+let currentType = "ingreso";
+let histFilter = "todos";
+
+// Firebase Auth exige un correo internamente; el login se ve como "usuario"
+// pero por debajo se construye un correo ficticio con este dominio.
+const DOMINIO_USUARIO = "misfinanzas.app";
+function usuarioAPseudoEmail(usuario) {
+  const limpio = usuario.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
+  return limpio + "@" + DOMINIO_USUARIO;
+}
+
+const fmt = (n) => "$" + Math.round(n || 0).toLocaleString("es-CO");
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const monthKey = (iso) => (iso || todayISO()).slice(0, 7);
+const currentMonthKey = () => todayISO().slice(0, 7);
+
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 1800);
+}
+
+// ---- AUTENTICACIÓN ----
+document.getElementById("login-btn").onclick = async () => {
+  const usuario = document.getElementById("login-email").value.trim();
+  const pass = document.getElementById("login-pass").value;
+  const err = document.getElementById("login-error");
+  err.textContent = "";
+  if (!usuario) { err.textContent = "Escribe tu usuario."; return; }
+  try {
+    await signInWithEmailAndPassword(auth, usuarioAPseudoEmail(usuario), pass);
+  } catch (e) {
+    err.textContent = "No pudimos iniciar sesión: " + e.message;
+  }
+};
+
+document.getElementById("register-btn").onclick = async () => {
+  const usuario = document.getElementById("login-email").value.trim();
+  const pass = document.getElementById("login-pass").value;
+  const err = document.getElementById("login-error");
+  err.textContent = "";
+  if (!usuario) { err.textContent = "Escribe un usuario."; return; }
+  if (pass.length < 6) { err.textContent = "La contraseña debe tener al menos 6 caracteres."; return; }
+  try {
+    await createUserWithEmailAndPassword(auth, usuarioAPseudoEmail(usuario), pass);
+  } catch (e) {
+    err.textContent = "No pudimos crear la cuenta: " + e.message;
+  }
+};
+
+document.getElementById("logout-btn").onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, (user) => {
+  unsubFns.forEach((fn) => fn());
+  unsubFns = [];
+  if (user) {
+    uid = user.uid;
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("app-screen").style.display = "block";
+    document.getElementById("bottom-nav").style.display = "flex";
+    document.getElementById("greet-text").textContent = "Hola, " + (user.email || "").split("@")[0];
+    document.getElementById("month-text").textContent = new Date().toLocaleDateString("es-CO", { month: "long", year: "numeric" });
+    startListeners();
+    populateCategorySelect();
+    document.getElementById("mov-fecha").value = todayISO();
+  } else {
+    uid = null;
+    movimientos = []; presupuestos = {}; metas = [];
+    document.getElementById("login-screen").style.display = "flex";
+    document.getElementById("app-screen").style.display = "none";
+    document.getElementById("bottom-nav").style.display = "none";
+  }
+});
+
+// ---- LISTENERS EN TIEMPO REAL ----
+function startListeners() {
+  const movQ = query(collection(db, "users", uid, "movimientos"));
+  unsubFns.push(onSnapshot(movQ, (snap) => {
+    movimientos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    movimientos.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+    renderAll();
+  }));
+
+  const budQ = query(collection(db, "users", uid, "presupuestos"));
+  unsubFns.push(onSnapshot(budQ, (snap) => {
+    presupuestos = {};
+    snap.docs.forEach((d) => { presupuestos[d.id] = d.data().limite; });
+    renderPresupuesto();
+    renderDashboard();
+  }));
+
+  const goalQ = query(collection(db, "users", uid, "metas"));
+  unsubFns.push(onSnapshot(goalQ, (snap) => {
+    metas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderMetas();
+    renderDashboard();
+    populateMetaSelect();
+  }));
+}
+
+// ---- NAVEGACIÓN ----
+document.querySelectorAll(".nav-btn").forEach((btn) => {
+  btn.onclick = () => switchView(btn.dataset.view);
+});
+function switchView(view) {
+  document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
+  document.getElementById("view-" + view).classList.add("active");
+  document.querySelectorAll(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
+}
+
+// ---- MODAL: registrar movimiento ----
+const movModal = document.getElementById("mov-modal");
+document.getElementById("fab-add").onclick = () => openMovModal();
+document.getElementById("mov-cancel").onclick = () => movModal.classList.remove("show");
+movModal.onclick = (e) => { if (e.target === movModal) movModal.classList.remove("show"); };
+
+function openMovModal() {
+  document.getElementById("mov-amount").value = "";
+  document.getElementById("mov-cuenta").value = "";
+  document.getElementById("mov-nota").value = "";
+  document.getElementById("mov-fecha").value = todayISO();
+  document.getElementById("mov-error").textContent = "";
+  setType("ingreso");
+  movModal.classList.add("show");
+}
+
+document.getElementById("type-in").onclick = () => setType("ingreso");
+document.getElementById("type-out").onclick = () => setType("gasto");
+function setType(t) {
+  currentType = t;
+  document.getElementById("type-in").classList.toggle("active", t === "ingreso");
+  document.getElementById("type-out").classList.toggle("active", t === "gasto");
+  populateCategorySelect();
+}
+
+function populateCategorySelect() {
+  const sel = document.getElementById("mov-categoria");
+  const opts = currentType === "ingreso" ? CATEGORIAS_INGRESO : CATEGORIAS_GASTO;
+  sel.innerHTML = opts.map((c) => `<option value="${c}">${c}</option>`).join("");
+  toggleMetaField();
+  sel.onchange = toggleMetaField;
+}
+function toggleMetaField() {
+  const sel = document.getElementById("mov-categoria");
+  const show = currentType === "gasto" && sel.value === CATEGORIA_AHORRO;
+  document.getElementById("mov-meta-field").style.display = show ? "flex" : "none";
+}
+function populateMetaSelect() {
+  const sel = document.getElementById("mov-meta");
+  sel.innerHTML = metas.map((m) => `<option value="${m.id}">${m.nombre}</option>`).join("");
+}
+
+document.getElementById("mov-save").onclick = async () => {
+  const monto = parseFloat(document.getElementById("mov-amount").value);
+  const categoria = document.getElementById("mov-categoria").value;
+  const cuenta = document.getElementById("mov-cuenta").value.trim() || "Sin especificar";
+  const fecha = document.getElementById("mov-fecha").value || todayISO();
+  const nota = document.getElementById("mov-nota").value.trim();
+  const err = document.getElementById("mov-error");
+  if (!monto || monto <= 0) { err.textContent = "Ingresa un monto válido."; return; }
+
+  const data = { tipo: currentType, monto, categoria, cuenta, fecha, nota, createdAt: serverTimestamp() };
+  if (currentType === "gasto" && categoria === CATEGORIA_AHORRO) {
+    const metaId = document.getElementById("mov-meta").value;
+    if (metaId) data.metaId = metaId;
+  }
+  try {
+    await addDoc(collection(db, "users", uid, "movimientos"), data);
+    movModal.classList.remove("show");
+    toast("Movimiento registrado");
+  } catch (e) {
+    err.textContent = "No se pudo guardar: " + e.message;
+  }
+};
+
+// ---- MODAL: nueva meta ----
+const goalModal = document.getElementById("goal-modal");
+document.getElementById("new-goal-btn").onclick = () => {
+  document.getElementById("goal-nombre").value = "";
+  document.getElementById("goal-monto").value = "";
+  document.getElementById("goal-fecha").value = "";
+  document.getElementById("goal-error").textContent = "";
+  goalModal.classList.add("show");
+};
+document.getElementById("goal-cancel").onclick = () => goalModal.classList.remove("show");
+goalModal.onclick = (e) => { if (e.target === goalModal) goalModal.classList.remove("show"); };
+
+document.getElementById("goal-save").onclick = async () => {
+  const nombre = document.getElementById("goal-nombre").value.trim();
+  const montoObjetivo = parseFloat(document.getElementById("goal-monto").value);
+  const fechaLimite = document.getElementById("goal-fecha").value || null;
+  const err = document.getElementById("goal-error");
+  if (!nombre) { err.textContent = "Ponle un nombre a la meta."; return; }
+  if (!montoObjetivo || montoObjetivo <= 0) { err.textContent = "Ingresa un monto objetivo válido."; return; }
+  try {
+    await addDoc(collection(db, "users", uid, "metas"), { nombre, montoObjetivo, fechaLimite, createdAt: serverTimestamp() });
+    goalModal.classList.remove("show");
+    toast("Meta creada");
+  } catch (e) {
+    err.textContent = "No se pudo crear: " + e.message;
+  }
+};
+
+window.deleteGoal = async (id) => {
+  if (!confirm("¿Eliminar esta meta? Los aportes ya registrados quedarán sin meta asociada.")) return;
+  await deleteDoc(doc(db, "users", uid, "metas", id));
+};
+window.deleteMov = async (id) => {
+  if (!confirm("¿Eliminar este movimiento?")) return;
+  await deleteDoc(doc(db, "users", uid, "movimientos", id));
+};
+window.aportarAMeta = (id) => {
+  openMovModal();
+  setType("gasto");
+  document.getElementById("mov-categoria").value = CATEGORIA_AHORRO;
+  toggleMetaField();
+  document.getElementById("mov-meta").value = id;
+};
+
+// ---- FILTROS HISTORIAL ----
+document.getElementById("hist-filters").addEventListener("click", (e) => {
+  if (!e.target.classList.contains("chip")) return;
+  document.querySelectorAll("#hist-filters .chip").forEach((c) => c.classList.remove("active"));
+  e.target.classList.add("active");
+  histFilter = e.target.dataset.filter;
+  renderHistorial();
+});
+
+// ---- PRESUPUESTOS: guardar límite ----
+document.getElementById("budget-list").addEventListener("change", async (e) => {
+  if (!e.target.classList.contains("budget-limit-input")) return;
+  const categoria = e.target.dataset.categoria;
+  const limite = parseFloat(e.target.value) || 0;
+  await setDoc(doc(db, "users", uid, "presupuestos", categoria), { limite });
+  toast("Presupuesto actualizado");
+});
+
+// ---- CÁLCULOS ----
+function movimientosDelMes(mk = currentMonthKey()) {
+  return movimientos.filter((m) => monthKey(m.fecha) === mk);
+}
+function totalesDelMes(mk = currentMonthKey()) {
+  const mm = movimientosDelMes(mk);
+  const ingresos = mm.filter((m) => m.tipo === "ingreso").reduce((s, m) => s + Number(m.monto || 0), 0);
+  const gastos = mm.filter((m) => m.tipo === "gasto").reduce((s, m) => s + Number(m.monto || 0), 0);
+  return { ingresos, gastos, balance: ingresos - gastos };
+}
+function totalAhorradoHistorico() {
+  return movimientos.filter((m) => m.tipo === "gasto" && m.categoria === CATEGORIA_AHORRO)
+    .reduce((s, m) => s + Number(m.monto || 0), 0);
+}
+function aportesDeMeta(metaId) {
+  return movimientos.filter((m) => m.metaId === metaId).reduce((s, m) => s + Number(m.monto || 0), 0);
+}
+function gastadoPorCategoria(categoria, mk = currentMonthKey()) {
+  return movimientosDelMes(mk).filter((m) => m.tipo === "gasto" && m.categoria === categoria)
+    .reduce((s, m) => s + Number(m.monto || 0), 0);
+}
+
+// ---- RENDER ----
+function renderAll() {
+  renderBalanceCard();
+  renderDashboard();
+  renderHistorial();
+  renderPresupuesto();
+}
+
+function renderBalanceCard() {
+  const { ingresos, gastos, balance } = totalesDelMes();
+  document.getElementById("balance-amount").textContent = fmt(balance);
+  document.getElementById("sum-in").textContent = fmt(ingresos);
+  document.getElementById("sum-out").textContent = fmt(gastos);
+  document.getElementById("sum-saved").textContent = fmt(totalAhorradoHistorico());
+}
+
+function movRowHTML(m) {
+  const isIn = m.tipo === "ingreso";
+  return `
+    <div class="mov-item">
+      <div class="mov-icon ${isIn ? "in" : "out"}">${isIn ? "↑" : "↓"}</div>
+      <div class="mov-body">
+        <div class="cat">${m.categoria}</div>
+        <div class="meta">${m.cuenta || ""} · ${m.fecha || ""}${m.nota ? " · " + m.nota : ""}</div>
+      </div>
+      <div class="mov-amount num ${isIn ? "in" : "out"}">${isIn ? "+" : "-"}${fmt(m.monto)}</div>
+      <button class="mov-del" onclick="deleteMov('${m.id}')">✕</button>
+    </div>`;
+}
+
+function renderDashboard() {
+  const recent = document.getElementById("dashboard-recent");
+  const top5 = movimientos.slice(0, 5);
+  recent.innerHTML = top5.length ? top5.map(movRowHTML).join("") : `<div class="empty">Aún no registras movimientos.</div>`;
+
+  const bud = document.getElementById("dashboard-budgets");
+  const cats = Object.keys(presupuestos).filter((c) => presupuestos[c] > 0);
+  bud.innerHTML = cats.length
+    ? cats.map((c) => budgetRowHTML(c, presupuestos[c])).join("")
+    : `<div class="empty">Define un presupuesto en la pestaña Presupuesto.</div>`;
+
+  const goalsWrap = document.getElementById("dashboard-goals");
+  goalsWrap.innerHTML = metas.length
+    ? metas.slice(0, 2).map(goalCardHTML).join("")
+    : `<div class="card"><div class="empty">Crea tu primera meta en la pestaña Metas.</div></div>`;
+}
+
+function budgetRowHTML(categoria, limite) {
+  const gastado = gastadoPorCategoria(categoria);
+  const pct = limite > 0 ? Math.min(100, (gastado / limite) * 100) : 0;
+  const cls = pct < 70 ? "ok" : pct < 100 ? "warn" : "over";
+  return `
+    <div class="budget-item">
+      <div class="row"><span class="cat">${categoria}</span><span class="figures num">${fmt(gastado)} / ${fmt(limite)}</span></div>
+      <div class="bar-track"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div>
+    </div>`;
+}
+
+function renderHistorial() {
+  const list = document.getElementById("hist-list");
+  const filtered = histFilter === "todos" ? movimientos : movimientos.filter((m) => m.tipo === histFilter);
+  list.innerHTML = filtered.length ? filtered.map(movRowHTML).join("") : `<div class="empty">Sin movimientos en este filtro.</div>`;
+}
+
+function renderPresupuesto() {
+  const list = document.getElementById("budget-list");
+  list.innerHTML = CATEGORIAS_GASTO.map((c) => {
+    const limite = presupuestos[c] || 0;
+    const gastado = gastadoPorCategoria(c);
+    const pct = limite > 0 ? Math.min(100, (gastado / limite) * 100) : 0;
+    const cls = pct < 70 ? "ok" : pct < 100 ? "warn" : "over";
+    return `
+      <div class="budget-item">
+        <div class="row">
+          <span class="cat">${c}</span>
+          <input type="number" class="budget-limit-input" data-categoria="${c}" value="${limite || ""}" placeholder="límite" />
+        </div>
+        <div class="row" style="margin-top:-4px;"><span></span><span class="figures num">${fmt(gastado)} de ${fmt(limite)}</span></div>
+        <div class="bar-track"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div>
+      </div>`;
+  }).join("");
+}
+
+function goalCardHTML(m) {
+  const aportado = aportesDeMeta(m.id);
+  const pct = m.montoObjetivo > 0 ? Math.min(100, (aportado / m.montoObjetivo) * 100) : 0;
+  const cls = pct < 70 ? "ok" : pct < 100 ? "warn" : "over";
+  return `
+    <div class="card goal-card">
+      <div class="row">
+        <span class="name">${m.nombre}</span>
+        ${m.fechaLimite ? `<span class="deadline">antes de ${m.fechaLimite}</span>` : ""}
+      </div>
+      <div class="bar-track"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div>
+      <div class="figures"><span class="num">${fmt(aportado)}</span><span class="num">${fmt(m.montoObjetivo)}</span></div>
+      <div class="actions">
+        <button class="btn btn-primary" onclick="aportarAMeta('${m.id}')">Abonar</button>
+        <button class="btn btn-danger" onclick="deleteGoal('${m.id}')">Eliminar</button>
+      </div>
+    </div>`;
+}
+
+function renderMetas() {
+  const list = document.getElementById("goals-list");
+  list.innerHTML = metas.length ? metas.map(goalCardHTML).join("") : `<div class="card"><div class="empty">No tienes metas activas.</div></div>`;
+}
+</script>
+</body>
+</html>
